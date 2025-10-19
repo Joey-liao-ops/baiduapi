@@ -2,10 +2,24 @@
 // 百度网盘功能集成 - 修复版
 
 (() => {
-  // 配置 API 地址
-  const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    ? 'http://localhost:3000/api'  // 本地开发
-    : window.location.origin + '/api';  // 生产环境
+// 配置 API 地址 - 更智能的判断
+const API_BASE = (() => {
+  const hostname = window.location.hostname;
+  const origin = window.location.origin;
+  
+  // 本地开发环境
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return 'http://localhost:3000/api';
+  }
+  
+  // Vercel 部署环境（包括预览和生产）
+  if (hostname.includes('vercel.app') || hostname === 'rereplayer.com' || hostname === 'www.rereplayer.com') {
+    return origin + '/api';
+  }
+  
+  // 默认使用相对路径
+  return '/api';
+})();
   
   console.log('🔧 百度网盘模块初始化');
   console.log('API Base URL:', API_BASE);
