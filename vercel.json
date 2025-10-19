@@ -6,6 +6,14 @@
       "dest": "/api/$1"
     },
     {
+      "src": "/callback",
+      "dest": "/callback.html"
+    },
+    {
+      "src": "/(.*\\.(css|js|html|png|jpg|jpeg|gif|svg|webp|ico|map))",
+      "dest": "/$1"
+    },
+    {
       "src": "/(.*)",
       "dest": "/index.html"
     }
