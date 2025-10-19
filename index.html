@@ -66,6 +66,26 @@
         </div>
 
         <aside class="playlist" id="playlistPanel">
+          <!-- 百度网盘功能区 - 新增 -->
+          <div class="baidu-section">
+            <div class="baidu-header">
+              <strong>☁️ 百度网盘</strong>
+              <div id="baiduAuthStatus" class="baidu-status">未登录</div>
+            </div>
+            <div class="baidu-actions">
+              <button id="baiduLoginBtn" class="baidu-btn baidu-btn-primary">登录网盘</button>
+              <button id="baiduLogoutBtn" class="baidu-btn baidu-btn-secondary" style="display:none;">退出</button>
+            </div>
+            <div id="baiduFileSection" style="display:none;">
+              <div class="baidu-path">
+                <input type="text" id="baiduPathInput" placeholder="输入路径，如：/视频" value="/" />
+                <button id="baiduLoadBtn" class="baidu-btn baidu-btn-small">加载</button>
+              </div>
+              <div id="baiduFileList" class="baidu-file-list"></div>
+            </div>
+          </div>
+
+          <!-- 原有的播放列表 -->
           <div class="playlist-header">
             <strong>播放<br>列表</strong>
             <div class="playlist-add">
@@ -99,7 +119,6 @@
     </div>
 
     <script src="player.js"></script>
+    <script src="baidu-integration.js"></script>
   </body>
-  </html>
-
-
+</html>
