@@ -1,7 +1,7 @@
 // api/proxy.js
 // 代理百度网盘视频流，解决 CORS 问题
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   const { url, access_token } = req.query;
 
   if (!url || !access_token) {

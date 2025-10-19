@@ -14,7 +14,7 @@
       "use": "@vercel/static"
     },
     {
-      "src": "*.js",
+      "src": "{player.js,baidu-integration.js}",
       "use": "@vercel/static"
     }
   ],

@@ -1,7 +1,7 @@
 // api/baidu-auth.js
 // 处理百度网盘 OAuth 认证流程
 
-export default async function handler(req, res) {
+module.exports = async (req, res) => {
   // 允许跨域请求
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
