@@ -1,0 +1,23 @@
+{
+  "name": "rereplayer-baidu",
+  "version": "1.0.0",
+  "description": "ReRe Player with Baidu Netdisk integration",
+  "main": "index.html",
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel --prod"
+  },
+  "keywords": [
+    "video",
+    "player",
+    "baidu",
+    "netdisk",
+    "cloud-storage"
+  ],
+  "author": "Joey Liao",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Joey-liao-ops/baiduapi.git"
+  }
+}
