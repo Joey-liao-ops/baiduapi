@@ -570,6 +570,8 @@
       toastElement.classList.remove('show');
     }, 1400);
   }
+    // 暴露 toast 函数到全局
+  window.toast = toast;
   // 字幕相关逻辑已移除
 
   function bindKeyboardShortcuts() {
