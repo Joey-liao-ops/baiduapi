@@ -402,76 +402,85 @@
       // 用户取消或不支持，将在完成后回退到 a[download]
     }
     try {
-      const tv = document.createElement('video');
-      tv.crossOrigin = 'anonymous';
-      tv.preload = 'auto';
-      tv.playsInline = true;
-      tv.muted = false;
-      tv.src = src;
-
-      await new Promise((res) => {
-        if (Number.isFinite(tv.duration)) return res(null);
-        tv.addEventListener('loadedmetadata', () => res(null), { once: true });
-      });
-      tv.currentTime = A;
-      await new Promise((res) => tv.addEventListener('seeked', () => res(null), { once: true }));
-
-      const capture = tv.captureStream ? tv.captureStream() : (/** @type {any} */(tv)).mozCaptureStream?.();
-      if (!capture) { toast('浏览器不支持媒体捕获'); return; }
-
-      // 优先尝试 MP4（受限于浏览器支持情况）
-      let mimeOrder = [
-        'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
-        'video/mp4',
-        'video/webm;codecs=vp9,opus',
-        'video/webm;codecs=vp8,opus',
-        'video/webm'
-      ];
-      let mime = mimeOrder.find(m => MediaRecorder.isTypeSupported?.(m));
-      if (!mime) mime = '';
-      const recorder = mime ? new MediaRecorder(capture, { mimeType: mime }) : new MediaRecorder(capture);
-      const chunks = [];
-      recorder.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
-      const stopAndSave = () => {
-        try { recorder.stop(); } catch {}
-      };
-      recorder.onstop = () => {
-        const outType = recorder.mimeType || mime || 'video/webm';
-        const blob = new Blob(chunks, { type: outType });
-        const tA = formatTime(A).replace(/:/g, '-');
-        const tB = formatTime(B).replace(/:/g, '-');
-        const ext = /mp4/i.test(outType) ? 'mp4' : 'webm';
-        const defaultName = `segment_${tA}_${tB}.${ext}`;
-        (async () => {
-          if (pickedHandle) {
-            try {
-              const writable = await pickedHandle.createWritable();
-              await writable.write(blob);
-              await writable.close();
-              toast('已保存到选择的位置');
-              tv.pause();
-              return;
-            } catch (e) {
-              console.warn('Write to picked handle failed, fallback to download', e);
+      async function ensureFFmpeg() {
+        if (!window.FFmpeg) {
+          await new Promise((resolve, reject) => {
+            const s = document.createElement('script');
+            s.src = 'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.min.js';
+            s.onload = resolve;
+            s.onerror = reject;
+            document.head.appendChild(s);
+          });
+        }
+        const { createFFmpeg, fetchFile } = window.FFmpeg;
+        const ffmpeg = createFFmpeg({ log: false, corePath: 'https://unpkg.com/@ffmpeg/core@0.12.10/dist/umd/ffmpeg-core.js' });
+        await ffmpeg.load();
+        return { ffmpeg, fetchFile };
+      }
+      async function getInputFileBuffer() {
+        try {
+          const current = playlistItems[playlistIndex];
+          if (current && current.isLocal && current.hasHandle) {
+            const handle = await HandleDB.get(current.id);
+            if (handle) {
+              const file = await handle.getFile();
+              return await file.arrayBuffer();
             }
           }
-          // 回退：a[download]
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = pickedName || defaultName;
-          a.click();
-          setTimeout(() => URL.revokeObjectURL(url), 0);
-          tv.pause();
-        })();
-      };
-      tv.addEventListener('timeupdate', () => {
-        if (tv.currentTime >= B - 0.02) {
-          stopAndSave();
+        } catch {}
+        const res = await fetch(src, { mode: 'cors' });
+        if (!res.ok) throw new Error('fetch failed');
+        return await res.arrayBuffer();
+      }
+      const { ffmpeg, fetchFile } = await ensureFFmpeg();
+      const buf = await getInputFileBuffer();
+      const u8 = new Uint8Array(buf);
+      const urlExt = (() => { try { const u = new URL(src); const p = u.pathname.toLowerCase(); const m = p.match(/\.(mp4|mkv|webm|mov|avi|flv|mp3|aac|m4a)$/i); return m ? '.' + m[1] : '.mp4'; } catch { return '.mp4'; } })();
+      const inName = 'input' + urlExt;
+      ffmpeg.FS('writeFile', inName, u8);
+      let outName = 'out.mp4';
+      let ok = true;
+      try {
+        await ffmpeg.run('-y', '-ss', String(A.toFixed(3)), '-to', String(B.toFixed(3)), '-i', inName, '-c', 'copy', '-avoid_negative_ts', '1', outName);
+      } catch (e) {
+        ok = false;
+      }
+      if (!ok) {
+        try {
+          await ffmpeg.run('-y', '-ss', String(A.toFixed(3)), '-to', String(B.toFixed(3)), '-i', inName, '-c:v', 'libx264', '-preset', 'veryfast', '-movflags', '+faststart', '-c:a', 'aac', '-b:a', '128k', outName);
+          ok = true;
+        } catch (e) {
+          ok = false;
         }
-      });
-      recorder.start(500);
-      await tv.play();
+      }
+      if (!ok) {
+        outName = 'out.webm';
+        await ffmpeg.run('-y', '-ss', String(A.toFixed(3)), '-to', String(B.toFixed(3)), '-i', inName, '-c:v', 'libvpx-vp9', '-b:v', '1M', '-c:a', 'libopus', outName);
+      }
+      const data = ffmpeg.FS('readFile', outName);
+      const isMp4 = /\.mp4$/i.test(outName);
+      const blob = new Blob([data.buffer], { type: isMp4 ? 'video/mp4' : 'video/webm' });
+      const tA = formatTime(A).replace(/:/g, '-');
+      const tB = formatTime(B).replace(/:/g, '-');
+      const ext = isMp4 ? 'mp4' : 'webm';
+      const defaultName = `segment_${tA}_${tB}.${ext}`;
+      if (pickedHandle) {
+        try {
+          const writable = await pickedHandle.createWritable();
+          await writable.write(blob);
+          await writable.close();
+          toast('已保存到选择的位置');
+          return;
+        } catch (e) {
+          console.warn('Write to picked handle failed, fallback to download', e);
+        }
+      }
+      const dlUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = dlUrl;
+      a.download = pickedName || defaultName;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(dlUrl), 0);
       toast('开始导出 AB 片段');
     } catch (e) {
       toast('导出失败');
